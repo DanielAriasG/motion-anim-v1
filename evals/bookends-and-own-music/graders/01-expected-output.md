@@ -1,0 +1,7 @@
+---
+type: llm
+focus: trace
+weight: 1
+---
+
+The result matches this description: A 1920x1080 60 fps MP4 made of a built intro (the supplied sentence, spoken), the narrated film, and the supplied outro clip, joined in that order. The supplied music file is the background bed, clearly under the voice, with the score's accents kept. Captions (.srt and a subtitle track) cover the intro and the film. check_film.py reports bookends PASS. The report names the music file and its licence status. PENDING: add files/outro.mp4 and files/music.mp3 before running. 

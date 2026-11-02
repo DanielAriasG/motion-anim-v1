@@ -1,0 +1,14 @@
+{
+  "voice": {
+    "elevenlabs_voice_id": "onwK4e9ZLuTAKqWW03F9",
+    "elevenlabs_name": "Daniel (premade, works on the free plan)",
+    "model_id": "eleven_multilingual_v2",
+    "sapi_draft": "Microsoft Zira Desktop"
+  },
+  "lines": [
+    { "id": "s1",  "scene": "title", "gap": 0.8, "text": "Every film starts with one clear idea." },
+    { "id": "s2",  "scene": "card",  "gap": 1.0, "text": "Then each part appears exactly when it is said." },
+    { "id": "end", "scene": "end",   "gap": 1.4, "text": "Made with Motion Anim." }
+  ],
+  "tail": 4.0
+}

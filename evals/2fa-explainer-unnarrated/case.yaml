@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: 2fa-explainer-unnarrated
+expected_outcome: |
+  A 1920x1080 MP4 of roughly 20-35 seconds explaining two-factor authentication without narration:
+  password step, phone-code step, and why a stolen password alone fails. Clean light Apple-style look
+  (system font, cards, restrained colour with consistent meanings), text held long enough to read,
+  no overlapping or clipped text, a quiet soundtrack or none, plus a few review stills.

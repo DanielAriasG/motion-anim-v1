@@ -1,0 +1,411 @@
+{
+  "about": "Service registry for make_film.py. Each service is one script with one job, talking to the others only through files in the film folder. make_film.py runs a pipeline from this file and skips a service when its outputs are newer than its inputs and its command is unchanged. Paths: {film} = the film folder, {engine} = <project>/engine, {build} = {film}/build. Inputs and outputs may use * globs. on_fail: stop (default) or warn.",
+  "version": 1,
+  "services": {
+    "voice-cache": {
+      "does": "Copies a saved voice (vo-<voice id>/) into vo/ so no credits are spent again",
+      "builtin": true,
+      "in": [
+        "vo-{voice_id}/*"
+      ],
+      "out": [
+        "vo/*.json"
+      ],
+      "needs": []
+    },
+    "voice-elevenlabs": {
+      "does": "Narration from ElevenLabs, with native word timestamps",
+      "run": [
+        "node",
+        "{engine}/tts_elevenlabs.js",
+        "{film}"
+      ],
+      "env": {
+        "VOICE_ID": "{voice_id}"
+      },
+      "in": [
+        "narration.json"
+      ],
+      "out": [
+        "vo/*.wav",
+        "vo/*.json"
+      ],
+      "needs": [
+        "node",
+        "ffmpeg",
+        "env:ELEVENLABS_API_KEY"
+      ]
+    },
+    "voice-sapi": {
+      "does": "Free local Windows voice with native word timings, for timing drafts",
+      "run": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "{engine}/tts_sapi.ps1",
+        "{film}"
+      ],
+      "in": [
+        "narration.json"
+      ],
+      "out": [
+        "vo/*.wav",
+        "vo/*.json"
+      ],
+      "needs": [
+        "powershell.exe",
+        "ffmpeg"
+      ]
+    },
+    "voice-import": {
+      "does": "Any other voice (Fish Audio, OpenAI, Azure, a recording): one file per line; timings given or estimated",
+      "run": [
+        "{python}",
+        "{engine}/import_voice.py",
+        "{film}",
+        "{voice_src}"
+      ],
+      "in": [
+        "narration.json",
+        "{voice_src}/*"
+      ],
+      "out": [
+        "vo/*.wav",
+        "vo/*.json"
+      ],
+      "needs": [
+        "ffmpeg"
+      ],
+      "uses": [
+        "align_estimate.py"
+      ]
+    },
+    "align": {
+      "does": "Replaces estimated word timings with ones measured from the audio (faster-whisper word timestamps)",
+      "run": [
+        "{python}",
+        "{engine}/align_whisper.py",
+        "{film}"
+      ],
+      "always": true,
+      "on_fail": "warn",
+      "warn": "word timings stay estimated; animations may land up to ~0.6 s off their words",
+      "in": [
+        "narration.json",
+        "vo/*.wav",
+        "vo/*.json"
+      ],
+      "out": [
+        "vo/*.json"
+      ],
+      "needs": [
+        "ffmpeg",
+        "python:faster_whisper"
+      ]
+    },
+    "timeline": {
+      "does": "Lays the lines on the film's timeline: cues.js for the picture and the score, and the voice track",
+      "run": [
+        "node",
+        "{engine}/build_timeline.js",
+        "{film}"
+      ],
+      "in": [
+        "narration.json",
+        "vo/*.wav",
+        "vo/*.json"
+      ],
+      "out": [
+        "cues.js",
+        "vo-track.wav"
+      ],
+      "needs": [
+        "node",
+        "ffmpeg"
+      ]
+    },
+    "score": {
+      "does": "The film's music bed, accents on the same beats as the picture",
+      "run": [
+        "node",
+        "{film}/score.js",
+        "{film}/music.wav"
+      ],
+      "in": [
+        "score.js",
+        "cues.js?",
+        "beats.js?",
+        "{engine}/audio-lib.js"
+      ],
+      "out": [
+        "music.wav"
+      ],
+      "needs": [
+        "node"
+      ]
+    },
+    "score-accents": {
+      "does": "The score's accents alone (score.js with BED=none), laid over a supplied music file",
+      "run": [
+        "node",
+        "{film}/score.js",
+        "{film}/accents.wav"
+      ],
+      "env": {
+        "BED": "none"
+      },
+      "in": [
+        "score.js",
+        "cues.js?",
+        "beats.js?",
+        "{engine}/audio-lib.js"
+      ],
+      "out": [
+        "accents.wav"
+      ],
+      "needs": [
+        "node"
+      ]
+    },
+    "music-file": {
+      "does": "A music bed from a file the client supplies: trimmed to the film, faded in and out (looped if short)",
+      "run": [
+        "{python}",
+        "{engine}/music_file.py",
+        "{film}",
+        "{music_src}",
+        "bed.wav"
+      ],
+      "in": [
+        "{music_src}",
+        "cues.js?",
+        "beats.js?"
+      ],
+      "out": [
+        "bed.wav"
+      ],
+      "needs": [
+        "ffmpeg"
+      ]
+    },
+    "mix": {
+      "does": "Levels the voice, the score (or a supplied bed plus the score's accents), ducks the music under the voice, normalises loudness",
+      "run": [
+        "node",
+        "{engine}/mix.js",
+        "{film}",
+        "music.wav",
+        "mix.wav"
+      ],
+      "env": {
+        "LUFS": "{lufs}",
+        "BED": "{bed}",
+        "BED_LUFS": "{bed_lufs}"
+      },
+      "in": [
+        "music.wav",
+        "vo-track.wav?",
+        "bed.wav?",
+        "accents.wav?"
+      ],
+      "out": [
+        "mix.wav"
+      ],
+      "needs": [
+        "node",
+        "ffmpeg"
+      ]
+    },
+    "render": {
+      "does": "Draws every frame in headless Chrome and encodes the video with the mix",
+      "run": [
+        "node",
+        "{engine}/render.js",
+        "video",
+        "{film}/index.html",
+        "{video}",
+        "{film}/mix.wav"
+      ],
+      "cwd": "{project}",
+      "in": [
+        "index.html",
+        "*.js",
+        "brand/*?",
+        "mix.wav",
+        "{engine}/motion.js",
+        "{engine}/render.js"
+      ],
+      "out": [
+        "{video}"
+      ],
+      "needs": [
+        "node",
+        "ffmpeg",
+        "chrome",
+        "node:puppeteer-core"
+      ]
+    },
+    "captions": {
+      "does": "Captions (.srt) from the narration's word timings",
+      "run": [
+        "node",
+        "{engine}/make_captions.js",
+        "{film}",
+        "{srt}"
+      ],
+      "in": [
+        "cues.js"
+      ],
+      "out": [
+        "{srt}"
+      ],
+      "needs": [
+        "node"
+      ]
+    },
+    "attach-captions": {
+      "does": "Puts the captions into the MP4 as a switchable subtitle track (not burned in)",
+      "run": [
+        "{python}",
+        "{engine}/attach_captions.py",
+        "{video}",
+        "{srt}",
+        "{out}",
+        "{film}/narration.json"
+      ],
+      "in": [
+        "{video}",
+        "{srt}"
+      ],
+      "out": [
+        "{out}"
+      ],
+      "needs": [
+        "ffmpeg"
+      ]
+    },
+    "intro": {
+      "does": "Builds the intro from its description (<film>/intro/, made by new_film.py) as a small film of its own, with the film's voice and loudness",
+      "builtin": true,
+      "always": true,
+      "in": [
+        "intro/narration.json?",
+        "intro/beats.js?",
+        "intro/*.js"
+      ],
+      "out": [
+        "intro/intro.mp4"
+      ],
+      "needs": []
+    },
+    "outro": {
+      "does": "Builds the outro from its description (<film>/outro/, made by new_film.py) as a small film of its own, with the film's voice and loudness",
+      "builtin": true,
+      "always": true,
+      "in": [
+        "outro/narration.json?",
+        "outro/beats.js?",
+        "outro/*.js"
+      ],
+      "out": [
+        "outro/outro.mp4"
+      ],
+      "needs": []
+    },
+    "bookends": {
+      "does": "Joins intro + film + outro (built from a description, or clips the client supplied in <film>/bookends/) into the delivered MP4, with one caption track across all three",
+      "run": [
+        "{python}",
+        "{engine}/bookends.py",
+        "{film}",
+        "{video}",
+        "{srt}",
+        "{out}",
+        "--lufs",
+        "{lufs}"
+      ],
+      "in": [
+        "{video}",
+        "{srt}?",
+        "intro/intro.mp4?",
+        "intro/intro.srt?",
+        "outro/outro.mp4?",
+        "outro/outro.srt?",
+        "bookends/*?"
+      ],
+      "out": [
+        "{out}",
+        "build/bookends.json"
+      ],
+      "needs": [
+        "ffmpeg"
+      ]
+    },
+    "deliver": {
+      "does": "Copies the rendered video to the delivery path (a film without captions)",
+      "builtin": true,
+      "in": [
+        "{video}"
+      ],
+      "out": [
+        "{out}"
+      ],
+      "needs": []
+    },
+    "check": {
+      "does": "Delivery checks: video, loudness, timings, captions, bookends, end-card time, alpha rule",
+      "run": [
+        "{python}",
+        "{engine}/check_film.py",
+        "{film}",
+        "{out}",
+        "--lufs",
+        "{lufs}"
+      ],
+      "always": true,
+      "on_fail": "warn",
+      "warn": "check_film.py found a FAIL: fix it before delivery",
+      "in": [
+        "{out}"
+      ],
+      "out": [],
+      "needs": [
+        "ffmpeg"
+      ]
+    }
+  },
+  "pipelines": {
+    "narrated": [
+      "voice-*",
+      "align",
+      "timeline",
+      "score",
+      "mix",
+      "render",
+      "captions",
+      "attach-captions",
+      "check"
+    ],
+    "silent": [
+      "score",
+      "mix",
+      "render",
+      "deliver",
+      "check"
+    ],
+    "_variants": "make_film.py adjusts a pipeline: --music FILE adds score-accents and music-file before mix; bookends (an intro or outro folder, or clips in bookends/) replace attach-captions or deliver with intro, outro, bookends; --captions none drops captions and attach-captions."
+  },
+  "tools": {
+    "review": [
+      "render.js stills",
+      "sheet.py",
+      "review.py",
+      "contrast.py"
+    ],
+    "scaffold": [
+      "new_film.py"
+    ]
+  }
+}
