@@ -1,5 +1,7 @@
 # Motion Anim V1
 
+**English** · [Español](README.es.md)
+
 A Claude skill that makes motion-graphics videos: explainers, animated diagrams and narrated films. Each
 frame is drawn in code on a canvas and rendered to a 1080p60 MP4. The design follows Apple's Human Interface
 Guidelines.
@@ -23,6 +25,7 @@ Once the six answers are in, it:
 - [Install the skill](#install-the-skill)
 - [Install the requirements](#install-the-requirements)
 - [Quick start](#quick-start)
+- [Prompt template](#prompt-template)
 - [Voices: Fish Audio and ElevenLabs (MCP or API key)](#voices-fish-audio-and-elevenlabs-mcp-or-api-key)
 - [Branding](#branding)
 - [Music](#music)
@@ -63,6 +66,12 @@ cd <project> && npm i puppeteer-core
 python engine/make_film.py my-film --voice sapi --music bed.mp3     # or --voice elevenlabs / import:<folder>
 ```
 The result is `my-film/my-film.mp4` and `my-film.srt`, with the `check_film.py` report at the end of the run.
+
+## Prompt template
+[prompts/prompt-template.md](prompts/prompt-template.md) is a fill-in brief: the six brief answers, idea,
+narration, graphics, colour, data rule, story beats and delivery. It follows the prompt behind Film 1
+("Anonymization and pseudonymization of structured data", v9) and includes that film as a worked example.
+Spanish version: [prompts/plantilla-prompt.md](prompts/plantilla-prompt.md).
 
 ## Voices: Fish Audio and ElevenLabs (MCP or API key)
 Each service can be used in two ways:
@@ -169,6 +178,7 @@ python scripts/new_film.py <project> my-film --narrated --intro-video intro.mp4 
 
 ## Folder layout
 - `SKILL.md`: the workflow Claude follows.
+- `prompts/`: the prompt template in English and Spanish, with a worked example.
 - `references/`: design guide, narration, engine API, code map.
 - `scripts/`: the engine and its services (`services.json`, run by `make_film.py`).
 - `assets/template/`: the starter film and the intro/outro scene.
